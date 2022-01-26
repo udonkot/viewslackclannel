@@ -1,0 +1,103 @@
+<html>
+ <head>
+   <meta http-equiv="content-type" content="text/html charset=UTF-8">
+   <title>SlackChannelCounter</title>
+   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+ </head>
+ <body>
+   <div class="header">
+     <p>Slackチャンネルカウンター</p> 
+     <p>選択したチャンネルのコメント数をユーザ毎に集計してグラフ表示します(ちょっと時間かかる)</p> 
+  </div>
+  <div id ="list">
+    <select name="selectbox" onchange="createCanvas(this)">
+      <!-- サーバサイドでSLACK APIで取得したチャンネル一覧を整形し、置換してセット -->
+      <option value="" selected>-</option>
+      <%=selectList %>
+    </select>
+  </div>
+  <div>
+    <canvas id="myChart"></canvas>
+  </div>
+ </body>
+
+<script>
+// 
+let myChart;
+
+/** 
+  onChangeイベント
+  選択したチャンネルのIDをパラメータにAzureFunctionを呼び出して結果を取得する
+*/
+function createCanvas(obj) {
+
+  // 選択したチャンネルのIDを取得
+  let idx = obj.selectedIndex;
+  let val = obj.options[idx].value;
+  
+  // データ取得
+  getData(val);
+}
+
+/**
+
+*/
+getData = async(val) => {
+
+  // canvas用データ格納先
+  var wrkLabels = [];
+  var wrkData = [];
+  
+  // Azure Functionの関数URLをセット
+  const url = "https://dxservice-javafuncsample.azurewebsites.net/api/channelComment?name=" + val;
+  
+  // リクエスト送信、レスポンスをjson形式で取得
+  await fetch(url,{mode: 'cors'})
+    .then(response => response.json())
+    .then(data => {
+      // レスポンスから集計結果を取得
+      var userData = data.result;
+      for( var i=0; i < userData.length; i++ ) {
+        // ユーザ名、コメント数を取得し格納
+        var user = userData[i].user;
+        var val = userData[i].value;
+        wrkLabels.push(user);
+        wrkData.push(val);
+      }
+    }
+  );
+  
+  // グラフのデータ定義
+  let data = {
+    labels: wrkLabels,
+    datasets: [{
+      label: 'slack comment',
+      backgroundColor: 'rgb(255, 99, 132)',
+      borderColor: 'rgb(255, 99, 132)',
+      data: wrkData,
+    }]
+  };
+  
+  // グラフの種類などのコンフィグ定義
+  let config = {
+    type: 'bar',
+    data: data,
+    options: {}
+  };
+  
+  // 既に画面に描画済の場合は破棄
+  if(myChart) {
+    myChart.destroy();
+  }
+  
+  // 画面描画  
+  myChart = new Chart(
+    document.getElementById('myChart').getContext('2d'),
+    config
+  );
+    
+
+}
+
+</script>
+</html>
